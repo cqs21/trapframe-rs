@@ -2,7 +2,11 @@
 .global __alltraps
 __alltraps:
     push rax
+    mov ax, [rsp + 4*8]     # load cs
+    and ax, 0x3             # test
+    jz __from_kernel        # continue trap
 
+__from_user:
     /*
     kernel stack:
     - ptr to GeneralRegs
@@ -15,24 +19,18 @@ __alltraps:
     - trap num
     - rax
     */
-    mov ax, [rsp + 4*8]     # load cs
-    and ax, 0x3             # test
-    jz __from_kernel        # continue trap
-
-__from_user:
     swapgs                  # swap in kernel gs
     mov rax, [rsp + 6*8]    # rax = user rsp
     mov gs:12, rax          # store user rsp -> scratch at TSS.sp1
 
-    mov rsp, [rsp + 8*8]    # load rsp = bottom of trap frame
-    add rsp, 22*8           # rsp = top of trap frame
+    mov rsp, [rsp + 8*8]    # load rsp -> GeneralRegs
+    add rsp, 22*8           # rsp -> top of GeneralRegs
     mov rax, gs:4           # rax = kernel stack
 
     # push trap_num, error_code
     push [rax - 6*8]        # push error_code
     push [rax - 7*8]        # push trap_num
-    push rax                # skip gsbase
-    push rax                # skip fsbase
+    sub rsp, 16             # skip fsbase, gsbase
     # push general registers
     push [rax - 3*8]        # push rflags
     push [rax - 5*8]        # push rip
@@ -40,6 +38,15 @@ __from_user:
     jmp trap_syscall_entry
 
 __from_kernel:
+    /*
+    kernel stack:
+    - rflags
+    - cs
+    - rip
+    - error code
+    - trap num
+    - rax
+    */
     pop rax
     push 0
     push r15

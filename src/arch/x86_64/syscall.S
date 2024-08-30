@@ -13,21 +13,12 @@ syscall_return:
     push rbp
     push rbx
 
-    # save fsbase, kernel may use
-    rdfsbase rbx
-    push rbx
-
-    push rdi
     push rdi                # keep rsp 16 bytes align
     mov gs:4, rsp           # store kernel rsp -> TSS.sp0
-    mov rsp, rdi            # set rsp = bottom of trap frame
+    mov rsp, rdi            # set rsp -> GeneralRegs
 
-    # pop fsbase gsbase
-    swapgs                  # store kernel gsbase
-    mov rax, [rsp + 18*8]
-    wrfsbase rax
-    mov rax, [rsp + 19*8]
-    wrgsbase rax
+    # restore user gsbase
+    swapgs
 
     pop rax
     pop rbx
@@ -90,11 +81,9 @@ syscall_entry:
     swapgs                  # swap in kernel gs
     mov gs:12, rsp          # store user rsp -> scratch at TSS.sp1
     mov rsp, gs:4           # load kernel rsp <- TSS.sp0
-    pop rsp                 # load rsp = bottom of trap frame
-    add rsp, 22*8           # rsp = top of trap frame
+    pop rsp                 # load rsp -> GeneralRegs
+    add rsp, 21*8           # rsp -> error code of GeneralRegs
 
-    # push trap_num, error_code
-    push 0                  # push error_code
     push 0x100              # push trap_num
     sub rsp, 16             # skip fsbase, gsbase
     # push general registers
@@ -120,22 +109,9 @@ trap_syscall_entry:
     push rbx
     push rax
 
-    # save user fsbase/gsbase
-    rdfsbase rbx
-    mov [rsp + 18*8], rbx
-    swapgs
-    rdgsbase rbx
-    mov [rsp + 19*8], rbx
-    swapgs
-
     # restore callee-saved registers
     mov rsp, gs:4           # load kernel rsp <- TSS.sp0
     pop rbx
-    pop rbx
-
-    # restore fsbase of kernel
-    pop rbx
-    wrfsbase rbx
 
     pop rbx
     pop rbp

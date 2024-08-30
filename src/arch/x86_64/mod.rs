@@ -36,9 +36,9 @@ pub use trap::TrapFrame;
 /// [`syscall`]: https://www.felixcloutier.com/x86/syscall
 ///
 #[cfg(any(target_os = "none", target_os = "uefi"))]
-pub unsafe fn init() {
+pub unsafe fn init(on_bsp: bool) {
     x86_64::instructions::interrupts::disable();
-    gdt::init();
+    gdt::init(on_bsp);
     idt::init();
     syscall::init();
 }
